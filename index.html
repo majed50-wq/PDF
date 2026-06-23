@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#5b5bd6" />
+  <meta name="description" content="A private, offline PDF editor that runs entirely in your browser." />
+  <title>PDF Studio</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Open-source libraries (cdnjs, CORS-enabled so the Service Worker can cache them for offline use) -->
+  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js"></script>
+</head>
+<body>
+  <!-- ============================ TOP TOOLBAR ============================ -->
+  <header class="toolbar" role="toolbar" aria-label="Main toolbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="currentColor" opacity=".15"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="brand-name">PDF&nbsp;Studio</span>
+    </div>
+
+    <div class="tgroup" aria-label="File">
+      <button class="tbtn" id="btnNew" title="New blank PDF (Ctrl+N)"><svg class="ic"><use href="#i-file"/></svg><span>New</span></button>
+      <button class="tbtn" id="btnOpen" title="Open / merge PDF (Ctrl+O)"><svg class="ic"><use href="#i-open"/></svg><span>Open</span></button>
+      <button class="tbtn" id="btnImages" title="Images to PDF"><svg class="ic"><use href="#i-image"/></svg><span>Images</span></button>
+      <button class="tbtn primary" id="btnSave" title="Download PDF (Ctrl+S)"><svg class="ic"><use href="#i-download"/></svg><span>Download</span></button>
+    </div>
+
+    <div class="sep" role="separator"></div>
+
+    <div class="tgroup" aria-label="Pages">
+      <button class="tbtn" id="btnAddPage" title="Add blank page after current"><svg class="ic"><use href="#i-plus"/></svg></button>
+      <button class="tbtn" id="btnDuplicate" title="Duplicate current page"><svg class="ic"><use href="#i-copy"/></svg></button>
+      <button class="tbtn" id="btnRotate" title="Rotate current page 90° (R)"><svg class="ic"><use href="#i-rotate"/></svg></button>
+      <button class="tbtn danger" id="btnDeletePage" title="Delete current page"><svg class="ic"><use href="#i-trash"/></svg></button>
+      <button class="tbtn" id="btnInsert" title="Insert pages from another PDF"><svg class="ic"><use href="#i-insert"/></svg></button>
+      <button class="tbtn" id="btnExtract" title="Extract selected pages"><svg class="ic"><use href="#i-extract"/></svg></button>
+      <button class="tbtn" id="btnSplit" title="Split into separate files (ZIP)"><svg class="ic"><use href="#i-split"/></svg></button>
+      <button class="tbtn" id="btnNumbers" title="Add page numbers"><svg class="ic"><use href="#i-hash"/></svg></button>
+    </div>
+
+    <div class="sep" role="separator"></div>
+
+    <div class="tgroup" aria-label="Annotate">
+      <button class="tbtn tool active" data-tool="select" title="Select / move (V)"><svg class="ic"><use href="#i-cursor"/></svg></button>
+      <button class="tbtn tool" data-tool="text" title="Add text (T)"><svg class="ic"><use href="#i-text"/></svg></button>
+      <button class="tbtn tool" data-tool="draw" title="Freehand draw (D)"><svg class="ic"><use href="#i-pen"/></svg></button>
+      <button class="tbtn tool" data-tool="rect" title="Rectangle"><svg class="ic"><use href="#i-square"/></svg></button>
+      <button class="tbtn tool" data-tool="ellipse" title="Circle"><svg class="ic"><use href="#i-circle"/></svg></button>
+      <button class="tbtn tool" data-tool="arrow" title="Arrow"><svg class="ic"><use href="#i-arrow"/></svg></button>
+      <button class="tbtn" id="btnAddImage" title="Place image on page"><svg class="ic"><use href="#i-image"/></svg></button>
+      <button class="tbtn" id="btnSign" title="Add signature"><svg class="ic"><use href="#i-sign"/></svg></button>
+
+      <label class="swatch" title="Color">
+        <input type="color" id="inColor" value="#e8443b" />
+      </label>
+      <label class="thick" title="Line thickness">
+        <input type="range" id="inThick" min="1" max="40" value="4" />
+      </label>
+
+      <button class="tbtn" id="btnUndo" title="Undo (Ctrl+Z)"><svg class="ic"><use href="#i-undo"/></svg></button>
+      <button class="tbtn" id="btnRedo" title="Redo (Ctrl+Y)"><svg class="ic"><use href="#i-redo"/></svg></button>
+      <button class="tbtn danger" id="btnDeleteObj" title="Delete selected annotation (Del)"><svg class="ic"><use href="#i-erase"/></svg></button>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="tgroup" aria-label="View">
+      <button class="tbtn" id="btnViewToggle" title="Toggle single / continuous view"><svg class="ic"><use href="#i-pages"/></svg></button>
+      <button class="tbtn" id="btnZoomOut" title="Zoom out (Ctrl+-)"><svg class="ic"><use href="#i-zoomout"/></svg></button>
+      <span class="zoomval" id="zoomVal">100%</span>
+      <button class="tbtn" id="btnZoomIn" title="Zoom in (Ctrl+=)"><svg class="ic"><use href="#i-zoomin"/></svg></button>
+      <button class="tbtn" id="btnFitWidth" title="Fit width"><svg class="ic"><use href="#i-fitw"/></svg></button>
+      <button class="tbtn" id="btnFitPage" title="Fit page"><svg class="ic"><use href="#i-fitp"/></svg></button>
+      <button class="tbtn" id="btnTheme" title="Toggle light / dark"><svg class="ic"><use href="#i-moon"/></svg></button>
+      <button class="tbtn" id="btnHelp" title="Keyboard shortcuts"><svg class="ic"><use href="#i-help"/></svg></button>
+    </div>
+  </header>
+
+  <!-- ============================ WORKSPACE ============================ -->
+  <main class="workspace">
+    <!-- Thumbnail sidebar -->
+    <aside class="sidebar" aria-label="Pages">
+      <div class="sidebar-head">
+        <span id="thumbCount">0 pages</span>
+        <label class="mini" title="Select all pages"><input type="checkbox" id="selAll" /> all</label>
+      </div>
+      <ul class="thumbs" id="thumbs" aria-label="Page thumbnails"></ul>
+    </aside>
+
+    <!-- Document viewer -->
+    <section class="viewer" id="viewer">
+      <!-- Single-page editor -->
+      <div class="stage-wrap" id="stageWrap">
+        <div class="stage-sizer" id="stageSizer">
+          <div class="stage" id="stage">
+            <canvas id="bgCanvas" class="bg-canvas"></canvas>
+            <canvas id="fabricCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Continuous (multi-page) view -->
+      <div class="continuous" id="continuous" hidden></div>
+
+      <!-- Empty state -->
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24" width="46" height="46" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        <h2>Start a document</h2>
+        <p>Open a PDF, drop files here, create a blank page, or build a PDF from images. Everything stays on this device.</p>
+        <div class="empty-actions">
+          <button class="btn primary" id="emptyOpen">Open PDF</button>
+          <button class="btn" id="emptyNew">Blank page</button>
+          <button class="btn" id="emptyImages">Images to PDF</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================ STATUS BAR ============================ -->
+  <footer class="statusbar">
+    <span id="statusPage">—</span>
+    <span class="dot" id="statusTool">Select</span>
+    <span class="grow"></span>
+    <span id="statusOffline" class="offline" hidden>Offline ready</span>
+    <span id="statusMsg"></span>
+  </footer>
+
+  <!-- ============================ HIDDEN FILE INPUTS ============================ -->
+  <input type="file" id="fileOpen" accept="application/pdf" multiple hidden />
+  <input type="file" id="fileInsert" accept="application/pdf" hidden />
+  <input type="file" id="fileImage" accept="image/png,image/jpeg,image/webp" hidden />
+  <input type="file" id="fileImages" accept="image/png,image/jpeg,image/webp" multiple hidden />
+
+  <!-- ============================ DIALOGS ============================ -->
+  <dialog id="dlgNew">
+    <form method="dialog" class="dlg">
+      <h3>New blank PDF</h3>
+      <label class="field">Page size
+        <select id="newSize">
+          <option value="a4">A4 (210 × 297 mm)</option>
+          <option value="letter">Letter (8.5 × 11 in)</option>
+          <option value="legal">Legal (8.5 × 14 in)</option>
+          <option value="a5">A5 (148 × 210 mm)</option>
+        </select>
+      </label>
+      <label class="field">Orientation
+        <select id="newOrient">
+          <option value="portrait">Portrait</option>
+          <option value="landscape">Landscape</option>
+        </select>
+      </label>
+      <p class="warn">This replaces the current document.</p>
+      <menu class="dlg-actions">
+        <button value="cancel" class="btn">Cancel</button>
+        <button value="ok" class="btn primary" id="newOk">Create</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlgSplit">
+    <form method="dialog" class="dlg">
+      <h3>Split into separate files</h3>
+      <label class="radio"><input type="radio" name="splitMode" value="single" checked /> One file per page</label>
+      <label class="radio"><input type="radio" name="splitMode" value="every" /> Every
+        <input type="number" id="splitN" min="1" value="2" class="num" /> pages</label>
+      <p class="hint">Files are bundled into a single ZIP download.</p>
+      <menu class="dlg-actions">
+        <button value="cancel" class="btn">Cancel</button>
+        <button value="ok" class="btn primary">Split &amp; download ZIP</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlgNumbers">
+    <form method="dialog" class="dlg">
+      <h3>Page numbers</h3>
+      <label class="field">Format
+        <select id="numFormat">
+          <option value="{n}">1, 2, 3</option>
+          <option value="{n} / {total}">1 / N</option>
+          <option value="Page {n}">Page 1</option>
+          <option value="Page {n} of {total}">Page 1 of N</option>
+          <option value="- {n} -">- 1 -</option>
+        </select>
+      </label>
+      <div class="row">
+        <label class="field">Position
+          <select id="numPos">
+            <option value="bc">Bottom center</option>
+            <option value="br">Bottom right</option>
+            <option value="bl">Bottom left</option>
+            <option value="tc">Top center</option>
+            <option value="tr">Top right</option>
+            <option value="tl">Top left</option>
+          </select>
+        </label>
+        <label class="field">Font size
+          <input type="number" id="numSize" min="6" max="48" value="11" class="num" />
+        </label>
+      </div>
+      <div class="row">
+        <label class="field">Start at
+          <input type="number" id="numStart" min="1" value="1" class="num" />
+        </label>
+        <label class="field">Color
+          <input type="color" id="numColor" value="#333333" />
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="numEnabled" checked /> Show page numbers on export</label>
+      <menu class="dlg-actions">
+        <button value="cancel" class="btn">Cancel</button>
+        <button value="ok" class="btn primary">Apply</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlgSign">
+    <div class="dlg">
+      <h3>Draw your signature</h3>
+      <div class="sign-pad-wrap">
+        <canvas id="signPad" width="520" height="200"></canvas>
+      </div>
+      <div class="sign-row">
+        <label class="field inline">Ink
+          <input type="color" id="signColor" value="#0b2545" />
+        </label>
+        <button class="btn" id="signClear" type="button">Clear</button>
+      </div>
+      <menu class="dlg-actions">
+        <button class="btn" id="signCancel" type="button">Cancel</button>
+        <button class="btn primary" id="signAdd" type="button">Add to page</button>
+      </menu>
+    </div>
+  </dialog>
+
+  <dialog id="dlgHelp">
+    <form method="dialog" class="dlg">
+      <h3>Keyboard shortcuts</h3>
+      <ul class="keys">
+        <li><kbd>Ctrl</kbd>+<kbd>O</kbd> Open / merge</li>
+        <li><kbd>Ctrl</kbd>+<kbd>N</kbd> New blank</li>
+        <li><kbd>Ctrl</kbd>+<kbd>S</kbd> Download</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> Undo / redo</li>
+        <li><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> Zoom</li>
+        <li><kbd>←</kbd> <kbd>→</kbd> Previous / next page</li>
+        <li><kbd>V</kbd> Select &nbsp; <kbd>T</kbd> Text &nbsp; <kbd>D</kbd> Draw &nbsp; <kbd>R</kbd> Rotate</li>
+        <li><kbd>Del</kbd> Delete selection</li>
+      </ul>
+      <p class="hint">All processing happens in your browser. No files are uploaded.</p>
+      <menu class="dlg-actions"><button value="ok" class="btn primary">Got it</button></menu>
+    </form>
+  </dialog>
+
+  <!-- Drag-and-drop overlay -->
+  <div class="drop-overlay" id="dropOverlay" hidden><div>Drop PDFs or images to add them</div></div>
+
+  <!-- Toast host -->
+  <div class="toast-host" id="toasts" aria-live="polite"></div>
+
+  <!-- ============================ ICON SPRITE ============================ -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <g id="i-file"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></g>
+      <g id="i-open"><path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H3z"/><path d="M3 7V5a2 2 0 0 1 2-2h3l2 2"/></g>
+      <g id="i-download"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></g>
+      <g id="i-plus"><path d="M12 5v14"/><path d="M5 12h14"/></g>
+      <g id="i-copy"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></g>
+      <g id="i-rotate"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></g>
+      <g id="i-trash"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></g>
+      <g id="i-insert"><rect x="3" y="3" width="14" height="18" rx="2"/><path d="M19 9v8"/><path d="M15 13h8"/></g>
+      <g id="i-extract"><rect x="4" y="3" width="11" height="18" rx="2"/><path d="M18 8l3 4-3 4"/><path d="M11 12h10"/></g>
+      <g id="i-split"><path d="M12 3v18"/><rect x="2" y="6" width="7" height="12" rx="1"/><rect x="15" y="6" width="7" height="12" rx="1"/></g>
+      <g id="i-hash"><path d="M9 4L7 20"/><path d="M17 4l-2 16"/><path d="M5 9h15"/><path d="M4 15h15"/></g>
+      <g id="i-cursor"><path d="M5 3l7 17 2-7 7-2z"/></g>
+      <g id="i-text"><path d="M5 5h14"/><path d="M12 5v14"/></g>
+      <g id="i-pen"><path d="M12 19l7-7-4-4-7 7-1 5z"/><path d="M15 6l3 3"/></g>
+      <g id="i-square"><rect x="4" y="5" width="16" height="14" rx="1.5"/></g>
+      <g id="i-circle"><circle cx="12" cy="12" r="8"/></g>
+      <g id="i-arrow"><path d="M4 20L20 4"/><path d="M11 4h9v9"/></g>
+      <g id="i-image"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></g>
+      <g id="i-sign"><path d="M3 18c4 0 4-10 7-10s2 7 5 7 3-4 6-4"/></g>
+      <g id="i-undo"><path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/></g>
+      <g id="i-redo"><path d="M15 7l5 5-5 5"/><path d="M20 12H9a5 5 0 0 0 0 10h2"/></g>
+      <g id="i-erase"><path d="M5 5l14 14"/><path d="M19 5L5 19"/></g>
+      <g id="i-pages"><rect x="4" y="3" width="11" height="14" rx="1.5"/><path d="M9 21h11V8"/></g>
+      <g id="i-zoomin"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/><path d="M11 8v6"/><path d="M8 11h6"/></g>
+      <g id="i-zoomout"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/><path d="M8 11h6"/></g>
+      <g id="i-fitw"><path d="M3 12h18"/><path d="M6 9l-3 3 3 3"/><path d="M18 9l3 3-3 3"/></g>
+      <g id="i-fitp"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7l-2 2 2 2M15 7l2 2-2 2"/></g>
+      <g id="i-moon"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></g>
+      <g id="i-help"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.5-1 1-1 1.7"/><path d="M12 17h.01"/></g>
+    </defs>
+  </svg>
+
+  <script src="app.js"></script>
+</body>
+</html>

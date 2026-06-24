@@ -1,308 +1,958 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" dir="ltr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#5b5bd6" />
-  <meta name="description" content="A private, offline PDF editor that runs entirely in your browser." />
-  <title>PDF Studio</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0e8b7e" />
+<meta name="description" content="A fast, private PDF toolbox. Merge, split, rotate, convert and OCR, all in your browser." />
+<title>PDF Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230e8b7e'/%3E%3Cpath d='M8 6h5l3 3v9a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z' fill='none' stroke='white' stroke-width='1.4'/%3E%3C/svg%3E" />
 
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="icon-192.png" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <link rel="stylesheet" href="style.css" />
+<!-- Libraries (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-  <!-- Open-source libraries (cdnjs, CORS-enabled so the Service Worker can cache them for offline use) -->
-  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-  <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js"></script>
+<style>
+:root{
+  --ink:#15302b; --teal:#0e8b7e; --teal-deep:#0b6b60; --teal-press:#0a5750;
+  --gold:#cf9b34; --bg:#e8efed; --surface:#ffffff; --line:#dbe5e2;
+  --muted:#5e726d; --faint:#8a9a95; --danger:#d3553f; --danger-soft:#fbe9e5;
+  --shadow:0 6px 22px rgba(18,48,42,.10); --shadow-sm:0 2px 8px rgba(18,48,42,.07);
+  --r:18px; --r-sm:12px;
+  --c-merge:#0e8b7e; --c-split:#cf9b34; --c-rotate:#3b76c4; --c-extract:#7a5bd0;
+  --c-img2pdf:#2fa86a; --c-pdf2img:#e0654a; --c-ocr:#0f97a8; --c-booklet:#b7791f;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{
+  font-family:"Sora",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color:var(--ink); background:var(--bg);
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+  padding:0 0 env(safe-area-inset-bottom);
+}
+.wrap{max-width:560px; margin:0 auto; padding:0 16px 40px}
+a{color:inherit; text-decoration:none}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--teal); outline-offset:2px; border-radius:8px}
+
+/* ---------- App header ---------- */
+.appbar{
+  position:sticky; top:0; z-index:30; background:rgba(232,239,237,.86);
+  backdrop-filter:saturate(150%) blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.appbar-in{max-width:560px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:12px; min-height:60px}
+.wordmark{font-family:"DM Serif Display",serif; font-size:25px; letter-spacing:.2px; line-height:1; color:var(--ink)}
+.wordmark .dot{color:var(--gold)}
+.tagline{margin-left:auto; font-size:12px; color:var(--muted); text-align:right; max-width:170px}
+.back{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:42px; height:42px; margin-left:-8px; border-radius:12px;
+  background:var(--surface); border:1px solid var(--line); color:var(--ink); box-shadow:var(--shadow-sm);
+}
+.back svg{width:22px;height:22px}
+.page-title{font-family:"DM Serif Display",serif; font-size:24px; line-height:1.05}
+
+/* ---------- Home ---------- */
+.hero{padding:26px 2px 18px}
+.hero h1{font-family:"DM Serif Display",serif; font-weight:400; font-size:33px; line-height:1.06; margin:0 0 8px}
+.hero p{margin:0; color:var(--muted); font-size:14.5px; max-width:42ch}
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:13px}
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:16px 15px 15px; box-shadow:var(--shadow-sm); position:relative; overflow:hidden;
+  display:flex; flex-direction:column; gap:10px; min-height:128px;
+  transition:transform .14s ease, box-shadow .14s ease;
+}
+.card:active{transform:scale(.975); box-shadow:var(--shadow)}
+.card .corner{position:absolute; top:0; right:0; width:26px; height:26px;
+  background:linear-gradient(225deg, var(--line) 0 50%, transparent 50%); opacity:.6}
+.chip{width:46px; height:46px; border-radius:13px; display:grid; place-items:center; flex:0 0 auto; background:#eef4f3}
+.chip svg{width:25px; height:25px}
+.card h3{margin:0; font-size:15.5px; font-weight:600; letter-spacing:.1px}
+.card small{color:var(--muted); font-size:12px; line-height:1.35; font-weight:400}
+.card .label{margin-top:auto}
+
+/* tint helpers */
+.t-merge{background:color-mix(in srgb,var(--c-merge) 13%,#fff); color:var(--c-merge)}
+.t-split{background:color-mix(in srgb,var(--c-split) 15%,#fff); color:var(--c-split)}
+.t-rotate{background:color-mix(in srgb,var(--c-rotate) 13%,#fff); color:var(--c-rotate)}
+.t-extract{background:color-mix(in srgb,var(--c-extract) 13%,#fff); color:var(--c-extract)}
+.t-img2pdf{background:color-mix(in srgb,var(--c-img2pdf) 13%,#fff); color:var(--c-img2pdf)}
+.t-pdf2img{background:color-mix(in srgb,var(--c-pdf2img) 13%,#fff); color:var(--c-pdf2img)}
+.t-ocr{background:color-mix(in srgb,var(--c-ocr) 13%,#fff); color:var(--c-ocr)}
+.t-booklet{background:color-mix(in srgb,var(--c-booklet) 15%,#fff); color:var(--c-booklet)}
+
+.foot{margin-top:26px; text-align:center; color:var(--faint); font-size:12px; line-height:1.6}
+.foot b{color:var(--muted); font-weight:600}
+
+.editlink{display:flex; align-items:center; gap:13px; margin-top:14px; padding:14px 15px;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow-sm);
+  transition:transform .14s ease}
+.editlink:active{transform:scale(.985)}
+.editlink-txt{display:flex; flex-direction:column; min-width:0; flex:1}
+.editlink-txt b{font-size:15px; font-weight:600}
+.editlink-txt small{color:var(--muted); font-size:12px; line-height:1.35}
+.editlink-go{width:20px; height:20px; color:var(--faint); flex:0 0 auto}
+
+/* ---------- Tool pages ---------- */
+.view{display:none; animation:fade .2s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+.lead{color:var(--muted); font-size:14px; margin:6px 2px 18px}
+
+.drop{
+  border:2px dashed var(--line); border-radius:var(--r); background:var(--surface);
+  padding:30px 18px; text-align:center; cursor:pointer; display:block;
+  transition:border-color .14s, background .14s;
+}
+.drop:active{border-color:var(--teal); background:color-mix(in srgb,var(--teal) 5%,#fff)}
+.drop.hot{border-color:var(--teal); background:color-mix(in srgb,var(--teal) 7%,#fff)}
+.drop .pageicon{width:52px; height:62px; margin:0 auto 12px; display:block; color:var(--teal)}
+.drop .big{font-weight:600; font-size:15.5px}
+.drop .sub{color:var(--muted); font-size:12.5px; margin-top:4px}
+
+.section{margin-top:16px}
+.section h4{margin:0 0 9px; font-size:12px; letter-spacing:.7px; text-transform:uppercase; color:var(--faint); font-weight:600}
+
+/* file rows */
+.filelist{display:flex; flex-direction:column; gap:8px}
+.frow{display:flex; align-items:center; gap:11px; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r-sm); padding:10px 11px; box-shadow:var(--shadow-sm)}
+.frow .fi{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--teal) 12%,#fff);color:var(--teal);flex:0 0 auto}
+.frow .fi svg{width:18px;height:18px}
+.frow .meta{min-width:0; flex:1}
+.frow .nm{font-size:13.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.frow .sz{font-size:11.5px; color:var(--muted)}
+.frow .ord{display:flex; gap:2px}
+.iconbtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--surface);
+  display:grid;place-items:center;color:var(--muted)}
+.iconbtn:disabled{opacity:.35}
+.iconbtn svg{width:18px;height:18px}
+.iconbtn.del{color:var(--danger);border-color:transparent;background:var(--danger-soft)}
+
+/* options */
+.opts{display:flex; flex-direction:column; gap:10px}
+.choice{display:flex; gap:9px; flex-wrap:wrap}
+.seg{flex:1 1 0; min-width:84px}
+.seg input{position:absolute; opacity:0; pointer-events:none}
+.seg span{display:flex; align-items:center; justify-content:center; gap:7px; text-align:center;
+  padding:13px 8px; border:1.5px solid var(--line); border-radius:var(--r-sm); background:var(--surface);
+  font-size:13.5px; font-weight:500; color:var(--ink); cursor:pointer; min-height:48px}
+.seg span svg{width:19px;height:19px;color:var(--muted)}
+.seg input:checked + span{border-color:var(--teal); background:color-mix(in srgb,var(--teal) 9%,#fff); color:var(--teal-deep)}
+.seg input:checked + span svg{color:var(--teal)}
+.field{display:flex; flex-direction:column; gap:6px}
+.field label{font-size:12.5px; color:var(--muted); font-weight:500}
+.field input[type=text], .field input[type=number]{
+  padding:12px 13px; border:1.5px solid var(--line); border-radius:var(--r-sm);
+  background:var(--surface); font:inherit; font-size:15px; color:var(--ink); width:100%}
+.field input:focus{outline:none; border-color:var(--teal)}
+.hint{font-size:12px; color:var(--faint)}
+
+/* thumbnails (rotate / extract) */
+.thumbgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:9px}
+.thumb{position:relative; border:1.5px solid var(--line); border-radius:11px; overflow:hidden;
+  background:var(--surface); aspect-ratio:3/4; display:grid; place-items:center; cursor:pointer}
+.thumb canvas{max-width:100%; max-height:100%; display:block}
+.thumb .pnum{position:absolute; left:5px; bottom:4px; font-size:10.5px; color:var(--muted);
+  background:rgba(255,255,255,.85); padding:1px 6px; border-radius:6px; font-weight:600}
+.thumb .mark{position:absolute; top:5px; right:5px; width:21px;height:21px;border-radius:50%;
+  background:var(--surface); border:1.5px solid var(--line); display:grid; place-items:center; color:transparent}
+.thumb .mark svg{width:13px;height:13px}
+.thumb.sel{border-color:var(--teal)}
+.thumb.sel .mark{background:var(--teal); border-color:var(--teal); color:#fff}
+.selbar{display:flex; align-items:center; justify-content:space-between; margin:2px 2px 12px; font-size:13px; color:var(--muted)}
+.linklike{color:var(--teal-deep); font-weight:600; background:none; border:none; padding:6px 0; font-size:13px}
+
+/* primary action */
+.actbar{ margin-top:22px; padding-bottom:calc(6px + env(safe-area-inset-bottom)) }
+.btn{display:flex; align-items:center; justify-content:center; gap:9px; width:100%;
+  padding:16px; border:none; border-radius:14px; background:var(--teal); color:#fff;
+  font-size:16px; font-weight:600; box-shadow:0 6px 16px rgba(14,139,126,.32); cursor:pointer}
+.btn:active{background:var(--teal-press)}
+.btn[disabled]{background:#b7c8c4; box-shadow:none; cursor:default}
+.btn svg{width:20px;height:20px}
+.btn.ghost{background:var(--surface); color:var(--teal-deep); border:1.5px solid var(--line); box-shadow:none}
+
+/* progress + result */
+.prog{margin-top:14px; display:none}
+.prog.show{display:block}
+.bar{height:8px; border-radius:99px; background:var(--line); overflow:hidden}
+.bar i{display:block; height:100%; width:0; background:var(--teal); border-radius:99px; transition:width .2s}
+.prog .ptxt{font-size:12.5px; color:var(--muted); margin-top:7px; text-align:center}
+.result{margin-top:16px; display:none; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); padding:16px; box-shadow:var(--shadow-sm); text-align:center}
+.result.show{display:block}
+.result .ok{width:44px;height:44px;border-radius:50%;background:color-mix(in srgb,var(--teal) 14%,#fff);
+  color:var(--teal);display:grid;place-items:center;margin:0 auto 10px}
+.result .ok svg{width:24px;height:24px}
+.result h4{margin:0 0 3px; font-size:16px}
+.result p{margin:0 0 14px; color:var(--muted); font-size:13px}
+
+textarea#ocrText{width:100%; min-height:220px; border:1.5px solid var(--line); border-radius:var(--r-sm);
+  padding:13px; font:inherit; font-size:14.5px; line-height:1.7; resize:vertical; background:var(--surface); color:var(--ink)}
+
+.toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+  background:var(--ink); color:#fff; padding:11px 18px; border-radius:12px; font-size:13.5px;
+  box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:.25s; z-index:60; max-width:88vw; text-align:center}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.note{background:color-mix(in srgb,var(--gold) 12%,#fff); border:1px solid color-mix(in srgb,var(--gold) 35%,#fff);
+  color:#7a5a12; border-radius:var(--r-sm); padding:11px 13px; font-size:12.5px; margin-top:14px; line-height:1.5}
+
+@media (max-width:340px){ .grid{gap:10px} .card{min-height:120px; padding:14px 12px} }
+@media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
+</style>
 </head>
 <body>
-  <!-- ============================ TOP TOOLBAR ============================ -->
-  <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="currentColor" opacity=".15"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      </span>
-      <span class="brand-name">PDF&nbsp;Studio</span>
+
+<!-- ===================== APP BAR ===================== -->
+<header class="appbar">
+  <div class="appbar-in" id="appbarIn">
+    <!-- filled by router -->
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ===================== HOME ===================== -->
+  <section class="view active" id="view-home">
+    <div class="hero">
+      <h1>Your PDF toolbox.</h1>
+      <p>Pick a tool. Everything runs on your device, nothing is uploaded.</p>
     </div>
+    <nav class="grid" aria-label="Tools">
+      <a class="card" href="#merge">
+        <span class="corner"></span>
+        <span class="chip t-merge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h6l4 4v3"/><path d="M16 20h-6l-4-4V8"/><rect x="3" y="3" width="9" height="9" rx="1.5"/><rect x="12" y="12" width="9" height="9" rx="1.5"/></svg></span>
+        <div class="label"><h3>Merge PDF</h3><small>Combine files into one</small></div>
+      </a>
+      <a class="card" href="#split">
+        <span class="corner"></span>
+        <span class="chip t-split"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M7 8 4 12l3 4"/><path d="m17 8 3 4-3 4"/></svg></span>
+        <div class="label"><h3>Split PDF</h3><small>One file into many</small></div>
+      </a>
+      <a class="card" href="#rotate">
+        <span class="corner"></span>
+        <span class="chip t-rotate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></span>
+        <div class="label"><h3>Rotate Pages</h3><small>Fix page orientation</small></div>
+      </a>
+      <a class="card" href="#extract">
+        <span class="corner"></span>
+        <span class="chip t-extract"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="11" height="15" rx="1.5"/><path d="M20 8v11a2 2 0 0 1-2 2H9"/><path d="m9 11 2.5 2.5L9 16"/></svg></span>
+        <div class="label"><h3>Extract Pages</h3><small>Keep the pages you want</small></div>
+      </a>
+      <a class="card" href="#img2pdf">
+        <span class="corner"></span>
+        <span class="chip t-img2pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.6"/><path d="m4 17 5-5 4 4 3-3 4 4"/></svg></span>
+        <div class="label"><h3>Images to PDF</h3><small>Photos into one PDF</small></div>
+      </a>
+      <a class="card" href="#pdf2img">
+        <span class="corner"></span>
+        <span class="chip t-pdf2img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><circle cx="9.5" cy="13" r="1.3"/><path d="m8 18 2.5-2.5L13 18l2-2 1.5 2"/></svg></span>
+        <div class="label"><h3>PDF to Images</h3><small>Save pages as pictures</small></div>
+      </a>
+      <a class="card" href="#ocr">
+        <span class="corner"></span>
+        <span class="chip t-ocr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M17 4h2a1 1 0 0 1 1 1v2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M8 9h8"/><path d="M8 13h8"/><path d="M8 16h5"/></svg></span>
+        <div class="label"><h3>OCR</h3><small>Read text from scans</small></div>
+      </a>
+      <a class="card" href="#booklet">
+        <span class="corner"></span>
+        <span class="chip t-booklet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v15"/><path d="M12 6c-1.6-1.2-3.8-2-7-2v14c3.2 0 5.4.8 7 2"/><path d="M12 6c1.6-1.2 3.8-2 7-2v14c-3.2 0-5.4.8-7 2"/></svg></span>
+        <div class="label"><h3>Arabic Booklet</h3><small>RTL saddle-stitch layout</small></div>
+      </a>
+    </nav>
+    <a class="editlink" href="editor.html">
+      <span class="chip t-extract" style="background:color-mix(in srgb,#7a5bd0 13%,#fff);color:#7a5bd0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+      <span class="editlink-txt"><b>Full PDF editor</b><small>Annotate, sign, reorder and number pages on a canvas</small></span>
+      <svg class="editlink-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </a>
+    <p class="foot"><b>Private by design.</b><br>Files never leave your phone. Works offline once loaded.</p>
+  </section>
 
-    <div class="tgroup" aria-label="File">
-      <button class="tbtn" id="btnNew" title="New blank PDF (Ctrl+N)"><svg class="ic"><use href="#i-file"/></svg><span>New</span></button>
-      <button class="tbtn" id="btnOpen" title="Open / merge PDF (Ctrl+O)"><svg class="ic"><use href="#i-open"/></svg><span>Open</span></button>
-      <button class="tbtn" id="btnImages" title="Images to PDF"><svg class="ic"><use href="#i-image"/></svg><span>Images</span></button>
-      <button class="tbtn primary" id="btnSave" title="Download PDF (Ctrl+S)"><svg class="ic"><use href="#i-download"/></svg><span>Download</span></button>
+  <!-- ===================== MERGE ===================== -->
+  <section class="view" id="view-merge">
+    <p class="lead">Add two or more PDFs, set the order, and combine them into a single file.</p>
+    <label class="drop" id="mergeDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 2h22l12 12v40a0 0 0 0 1 0 0H10a0 0 0 0 1 0 0V2z"/><path d="M32 2v12h12"/><path d="M24 26v16M16 34h16" stroke-linecap="round"/></svg>
+      <div class="big">Choose PDF files</div>
+      <div class="sub">Tap to browse, or drop files here</div>
+      <input type="file" accept="application/pdf" multiple hidden id="mergeInput" />
+    </label>
+    <div class="section" id="mergeListWrap" style="display:none">
+      <h4>Files &middot; drag order with arrows</h4>
+      <div class="filelist" id="mergeList"></div>
     </div>
-
-    <div class="sep" role="separator"></div>
-
-    <div class="tgroup" aria-label="Pages">
-      <button class="tbtn" id="btnAddPage" title="Add blank page after current"><svg class="ic"><use href="#i-plus"/></svg><span>Add</span></button>
-      <button class="tbtn" id="btnDuplicate" title="Duplicate current page"><svg class="ic"><use href="#i-copy"/></svg><span>Copy</span></button>
-      <button class="tbtn" id="btnRotate" title="Rotate current page 90° (R)"><svg class="ic"><use href="#i-rotate"/></svg><span>Rotate</span></button>
-      <button class="tbtn danger" id="btnDeletePage" title="Delete current page"><svg class="ic"><use href="#i-trash"/></svg><span>Delete</span></button>
-      <button class="tbtn" id="btnInsert" title="Insert pages from another PDF"><svg class="ic"><use href="#i-insert"/></svg><span>Insert</span></button>
-      <button class="tbtn" id="btnExtract" title="Extract selected pages"><svg class="ic"><use href="#i-extract"/></svg><span>Extract</span></button>
-      <button class="tbtn" id="btnSplit" title="Split into separate files (ZIP)"><svg class="ic"><use href="#i-split"/></svg><span>Split</span></button>
-      <button class="tbtn" id="btnNumbers" title="Add page numbers"><svg class="ic"><use href="#i-hash"/></svg><span>Numbers</span></button>
+    <div class="actbar">
+      <button class="btn" id="mergeGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg> Merge PDF</button>
+      <div class="prog" id="mergeProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+      <div class="result" id="mergeResult"></div>
     </div>
+  </section>
 
-    <div class="sep" role="separator"></div>
-
-    <div class="tgroup" aria-label="Annotate">
-      <button class="tbtn tool active" data-tool="select" title="Select / move (V)"><svg class="ic"><use href="#i-cursor"/></svg><span>Select</span></button>
-      <button class="tbtn tool" data-tool="text" title="Add text (T)"><svg class="ic"><use href="#i-text"/></svg><span>Text</span></button>
-      <button class="tbtn tool" data-tool="draw" title="Freehand draw (D)"><svg class="ic"><use href="#i-pen"/></svg><span>Draw</span></button>
-      <button class="tbtn tool" data-tool="rect" title="Rectangle"><svg class="ic"><use href="#i-square"/></svg><span>Rect</span></button>
-      <button class="tbtn tool" data-tool="ellipse" title="Circle"><svg class="ic"><use href="#i-circle"/></svg><span>Circle</span></button>
-      <button class="tbtn tool" data-tool="arrow" title="Arrow"><svg class="ic"><use href="#i-arrow"/></svg><span>Arrow</span></button>
-      <button class="tbtn" id="btnAddImage" title="Place image on page"><svg class="ic"><use href="#i-image"/></svg><span>Image</span></button>
-      <button class="tbtn" id="btnSign" title="Add signature"><svg class="ic"><use href="#i-sign"/></svg><span>Sign</span></button>
-
-      <label class="swatch" title="Color">
-        <input type="color" id="inColor" value="#e8443b" />
-      </label>
-      <label class="thick" title="Line thickness">
-        <input type="range" id="inThick" min="1" max="40" value="4" />
-      </label>
-
-      <button class="tbtn" id="btnUndo" title="Undo (Ctrl+Z)"><svg class="ic"><use href="#i-undo"/></svg><span>Undo</span></button>
-      <button class="tbtn" id="btnRedo" title="Redo (Ctrl+Y)"><svg class="ic"><use href="#i-redo"/></svg><span>Redo</span></button>
-      <button class="tbtn danger" id="btnDeleteObj" title="Delete selected annotation (Del)"><svg class="ic"><use href="#i-erase"/></svg><span>Erase</span></button>
-    </div>
-
-    <div class="spacer"></div>
-
-    <div class="tgroup" aria-label="View">
-      <button class="tbtn" id="btnViewToggle" title="Toggle single / continuous view"><svg class="ic"><use href="#i-pages"/></svg><span>View</span></button>
-      <button class="tbtn" id="btnZoomOut" title="Zoom out (Ctrl+-)"><svg class="ic"><use href="#i-zoomout"/></svg><span>Zoom</span></button>
-      <span class="zoomval" id="zoomVal">100%</span>
-      <button class="tbtn" id="btnZoomIn" title="Zoom in (Ctrl+=)"><svg class="ic"><use href="#i-zoomin"/></svg><span>In</span></button>
-      <button class="tbtn" id="btnFitWidth" title="Fit width"><svg class="ic"><use href="#i-fitw"/></svg><span>Width</span></button>
-      <button class="tbtn" id="btnFitPage" title="Fit page"><svg class="ic"><use href="#i-fitp"/></svg><span>Fit</span></button>
-      <button class="tbtn" id="btnTheme" title="Toggle light / dark"><svg class="ic"><use href="#i-moon"/></svg><span>Theme</span></button>
-      <button class="tbtn" id="btnHelp" title="Keyboard shortcuts"><svg class="ic"><use href="#i-help"/></svg><span>Help</span></button>
-    </div>
-  </header>
-  <div class="toolbar-fade" aria-hidden="true"></div>
-
-  <!-- ============================ WORKSPACE ============================ -->
-  <main class="workspace">
-    <!-- Thumbnail sidebar -->
-    <aside class="sidebar" aria-label="Pages">
-      <div class="sidebar-head">
-        <span id="thumbCount">0 pages</span>
-        <label class="mini" title="Select all pages"><input type="checkbox" id="selAll" /> all</label>
-      </div>
-      <ul class="thumbs" id="thumbs" aria-label="Page thumbnails"></ul>
-    </aside>
-
-    <!-- Document viewer -->
-    <section class="viewer" id="viewer">
-      <!-- Single-page editor -->
-      <div class="stage-wrap" id="stageWrap">
-        <div class="stage-sizer" id="stageSizer">
-          <div class="stage" id="stage">
-            <canvas id="bgCanvas" class="bg-canvas"></canvas>
-            <canvas id="fabricCanvas"></canvas>
-          </div>
+  <!-- ===================== SPLIT ===================== -->
+  <section class="view" id="view-split">
+    <p class="lead">Break a PDF into smaller files, by page ranges or one file per page.</p>
+    <label class="drop" id="splitDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 2h22l12 12v40H10V2z"/><path d="M32 2v12h12"/></svg>
+      <div class="big">Choose a PDF</div>
+      <div class="sub" id="splitSub">Tap to browse</div>
+      <input type="file" accept="application/pdf" hidden id="splitInput" />
+    </label>
+    <div class="section" id="splitOpts" style="display:none">
+      <h4>How to split</h4>
+      <div class="opts">
+        <div class="choice">
+          <label class="seg"><input type="radio" name="splitmode" value="each" checked><span>Every page</span></label>
+          <label class="seg"><input type="radio" name="splitmode" value="ranges"><span>By ranges</span></label>
+        </div>
+        <div class="field" id="splitRangeField" style="display:none">
+          <label for="splitRanges">Page ranges</label>
+          <input type="text" id="splitRanges" inputmode="numeric" placeholder="e.g. 1-3, 4, 5-8" />
+          <span class="hint" id="splitHint">Separate parts with commas.</span>
         </div>
       </div>
-
-      <!-- Continuous (multi-page) view -->
-      <div class="continuous" id="continuous" hidden></div>
-
-      <!-- Empty state -->
-      <div class="empty" id="empty">
-        <svg viewBox="0 0 24 24" width="46" height="46" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-        <h2>Start a document</h2>
-        <p>Open a PDF, drop files here, create a blank page, or build a PDF from images. Everything stays on this device.</p>
-        <div class="empty-actions">
-          <button class="btn primary" id="emptyOpen">Open PDF</button>
-          <button class="btn" id="emptyNew">Blank page</button>
-          <button class="btn" id="emptyImages">Images to PDF</button>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- ============================ STATUS BAR ============================ -->
-  <footer class="statusbar">
-    <span id="statusPage">—</span>
-    <span class="dot" id="statusTool">Select</span>
-    <span class="grow"></span>
-    <span id="statusOffline" class="offline" hidden>Offline ready</span>
-    <span id="statusMsg"></span>
-  </footer>
-
-  <!-- ============================ HIDDEN FILE INPUTS ============================ -->
-  <input type="file" id="fileOpen" accept="application/pdf" multiple hidden />
-  <input type="file" id="fileInsert" accept="application/pdf" hidden />
-  <input type="file" id="fileImage" accept="image/png,image/jpeg,image/webp" hidden />
-  <input type="file" id="fileImages" accept="image/png,image/jpeg,image/webp" multiple hidden />
-
-  <!-- ============================ DIALOGS ============================ -->
-  <dialog id="dlgNew">
-    <form method="dialog" class="dlg">
-      <h3>New blank PDF</h3>
-      <label class="field">Page size
-        <select id="newSize">
-          <option value="a4">A4 (210 × 297 mm)</option>
-          <option value="letter">Letter (8.5 × 11 in)</option>
-          <option value="legal">Legal (8.5 × 14 in)</option>
-          <option value="a5">A5 (148 × 210 mm)</option>
-        </select>
-      </label>
-      <label class="field">Orientation
-        <select id="newOrient">
-          <option value="portrait">Portrait</option>
-          <option value="landscape">Landscape</option>
-        </select>
-      </label>
-      <p class="warn">This replaces the current document.</p>
-      <menu class="dlg-actions">
-        <button value="cancel" class="btn">Cancel</button>
-        <button value="ok" class="btn primary" id="newOk">Create</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <dialog id="dlgSplit">
-    <form method="dialog" class="dlg">
-      <h3>Split into separate files</h3>
-      <label class="radio"><input type="radio" name="splitMode" value="single" checked /> One file per page</label>
-      <label class="radio"><input type="radio" name="splitMode" value="every" /> Every
-        <input type="number" id="splitN" min="1" value="2" class="num" /> pages</label>
-      <p class="hint">Files are bundled into a single ZIP download.</p>
-      <menu class="dlg-actions">
-        <button value="cancel" class="btn">Cancel</button>
-        <button value="ok" class="btn primary">Split &amp; download ZIP</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <dialog id="dlgNumbers">
-    <form method="dialog" class="dlg">
-      <h3>Page numbers</h3>
-      <label class="field">Format
-        <select id="numFormat">
-          <option value="{n}">1, 2, 3</option>
-          <option value="{n} / {total}">1 / N</option>
-          <option value="Page {n}">Page 1</option>
-          <option value="Page {n} of {total}">Page 1 of N</option>
-          <option value="- {n} -">- 1 -</option>
-        </select>
-      </label>
-      <div class="row">
-        <label class="field">Position
-          <select id="numPos">
-            <option value="bc">Bottom center</option>
-            <option value="br">Bottom right</option>
-            <option value="bl">Bottom left</option>
-            <option value="tc">Top center</option>
-            <option value="tr">Top right</option>
-            <option value="tl">Top left</option>
-          </select>
-        </label>
-        <label class="field">Font size
-          <input type="number" id="numSize" min="6" max="48" value="11" class="num" />
-        </label>
-      </div>
-      <div class="row">
-        <label class="field">Start at
-          <input type="number" id="numStart" min="1" value="1" class="num" />
-        </label>
-        <label class="field">Color
-          <input type="color" id="numColor" value="#333333" />
-        </label>
-      </div>
-      <label class="check"><input type="checkbox" id="numEnabled" checked /> Show page numbers on export</label>
-      <menu class="dlg-actions">
-        <button value="cancel" class="btn">Cancel</button>
-        <button value="ok" class="btn primary">Apply</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <dialog id="dlgSign">
-    <div class="dlg">
-      <h3>Draw your signature</h3>
-      <div class="sign-pad-wrap">
-        <canvas id="signPad" width="520" height="200"></canvas>
-      </div>
-      <div class="sign-row">
-        <label class="field inline">Ink
-          <input type="color" id="signColor" value="#0b2545" />
-        </label>
-        <button class="btn" id="signClear" type="button">Clear</button>
-      </div>
-      <menu class="dlg-actions">
-        <button class="btn" id="signCancel" type="button">Cancel</button>
-        <button class="btn primary" id="signAdd" type="button">Add to page</button>
-      </menu>
     </div>
-  </dialog>
+    <div class="actbar">
+      <button class="btn" id="splitGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 8 4 12l3 4m10-8 3 4-3 4"/></svg> Split PDF</button>
+      <div class="prog" id="splitProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+      <div class="result" id="splitResult"></div>
+    </div>
+  </section>
 
-  <dialog id="dlgHelp">
-    <form method="dialog" class="dlg">
-      <h3>Keyboard shortcuts</h3>
-      <ul class="keys">
-        <li><kbd>Ctrl</kbd>+<kbd>O</kbd> Open / merge</li>
-        <li><kbd>Ctrl</kbd>+<kbd>N</kbd> New blank</li>
-        <li><kbd>Ctrl</kbd>+<kbd>S</kbd> Download</li>
-        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> Undo / redo</li>
-        <li><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd> Zoom</li>
-        <li><kbd>←</kbd> <kbd>→</kbd> Previous / next page</li>
-        <li><kbd>V</kbd> Select &nbsp; <kbd>T</kbd> Text &nbsp; <kbd>D</kbd> Draw &nbsp; <kbd>R</kbd> Rotate</li>
-        <li><kbd>Del</kbd> Delete selection</li>
-      </ul>
-      <p class="hint">All processing happens in your browser. No files are uploaded.</p>
-      <menu class="dlg-actions"><button value="ok" class="btn primary">Got it</button></menu>
-    </form>
-  </dialog>
+  <!-- ===================== ROTATE ===================== -->
+  <section class="view" id="view-rotate">
+    <p class="lead">Turn pages the right way up. Pick a direction, choose pages, apply.</p>
+    <label class="drop" id="rotateDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 2h22l12 12v40H10V2z"/><path d="M32 2v12h12"/></svg>
+      <div class="big">Choose a PDF</div>
+      <div class="sub">Tap to browse</div>
+      <input type="file" accept="application/pdf" hidden id="rotateInput" />
+    </label>
+    <div class="section" id="rotateOpts" style="display:none">
+      <h4>Direction</h4>
+      <div class="choice">
+        <label class="seg"><input type="radio" name="rotdir" value="-90" checked><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>Left</span></label>
+        <label class="seg"><input type="radio" name="rotdir" value="90"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>Right</span></label>
+        <label class="seg"><input type="radio" name="rotdir" value="180"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/><path d="M3 12a9 9 0 0 0 3 6.7"/></svg>180&deg;</span></label>
+      </div>
+      <div class="selbar"><span id="rotateSel">All pages selected</span><button class="linklike" id="rotateToggleAll">Clear all</button></div>
+      <div class="thumbgrid" id="rotateThumbs"></div>
+    </div>
+    <div class="actbar">
+      <button class="btn" id="rotateGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg> Rotate &amp; download</button>
+      <div class="prog" id="rotateProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+      <div class="result" id="rotateResult"></div>
+    </div>
+  </section>
 
-  <!-- Drag-and-drop overlay -->
-  <div class="drop-overlay" id="dropOverlay" hidden><div>Drop PDFs or images to add them</div></div>
+  <!-- ===================== EXTRACT ===================== -->
+  <section class="view" id="view-extract">
+    <p class="lead">Tap the pages you want to keep. The new PDF holds only those.</p>
+    <label class="drop" id="extractDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 2h22l12 12v40H10V2z"/><path d="M32 2v12h12"/></svg>
+      <div class="big">Choose a PDF</div>
+      <div class="sub">Tap to browse</div>
+      <input type="file" accept="application/pdf" hidden id="extractInput" />
+    </label>
+    <div class="section" id="extractOpts" style="display:none">
+      <div class="selbar"><span id="extractSel">0 pages selected</span><button class="linklike" id="extractToggleAll">Select all</button></div>
+      <div class="thumbgrid" id="extractThumbs"></div>
+    </div>
+    <div class="actbar">
+      <button class="btn" id="extractGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg> Extract pages</button>
+      <div class="prog" id="extractProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+      <div class="result" id="extractResult"></div>
+    </div>
+  </section>
 
-  <!-- Toast host -->
-  <div class="toast-host" id="toasts" aria-live="polite"></div>
+  <!-- ===================== IMAGES TO PDF ===================== -->
+  <section class="view" id="view-img2pdf">
+    <p class="lead">Turn photos or scans into a single PDF. JPG, PNG and WEBP welcome.</p>
+    <label class="drop" id="imgDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="8" width="40" height="40" rx="4"/><circle cx="17" cy="21" r="4"/><path d="m6 42 12-12 9 9 7-7 8 8" stroke-linecap="round"/></svg>
+      <div class="big">Choose images</div>
+      <div class="sub">Tap to browse, or drop here</div>
+      <input type="file" accept="image/png,image/jpeg,image/webp" multiple hidden id="imgInput" />
+    </label>
+    <div class="section" id="imgListWrap" style="display:none">
+      <h4>Pages &middot; one image per page</h4>
+      <div class="filelist" id="imgList"></div>
+    </div>
+    <div class="section" id="imgSizeWrap" style="display:none">
+      <h4>Page size</h4>
+      <div class="choice">
+        <label class="seg"><input type="radio" name="imgsize" value="fit" checked><span>Match image</span></label>
+        <label class="seg"><input type="radio" name="imgsize" value="a4"><span>A4 portrait</span></label>
+      </div>
+    </div>
+    <div class="actbar">
+      <button class="btn" id="imgGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg> Create PDF</button>
+      <div class="prog" id="imgProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+      <div class="result" id="imgResult"></div>
+    </div>
+  </section>
 
-  <!-- ============================ ICON SPRITE ============================ -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <g id="i-file"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></g>
-      <g id="i-open"><path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H3z"/><path d="M3 7V5a2 2 0 0 1 2-2h3l2 2"/></g>
-      <g id="i-download"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></g>
-      <g id="i-plus"><path d="M12 5v14"/><path d="M5 12h14"/></g>
-      <g id="i-copy"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></g>
-      <g id="i-rotate"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></g>
-      <g id="i-trash"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></g>
-      <g id="i-insert"><rect x="3" y="3" width="14" height="18" rx="2"/><path d="M19 9v8"/><path d="M15 13h8"/></g>
-      <g id="i-extract"><rect x="4" y="3" width="11" height="18" rx="2"/><path d="M18 8l3 4-3 4"/><path d="M11 12h10"/></g>
-      <g id="i-split"><path d="M12 3v18"/><rect x="2" y="6" width="7" height="12" rx="1"/><rect x="15" y="6" width="7" height="12" rx="1"/></g>
-      <g id="i-hash"><path d="M9 4L7 20"/><path d="M17 4l-2 16"/><path d="M5 9h15"/><path d="M4 15h15"/></g>
-      <g id="i-cursor"><path d="M5 3l7 17 2-7 7-2z"/></g>
-      <g id="i-text"><path d="M5 5h14"/><path d="M12 5v14"/></g>
-      <g id="i-pen"><path d="M12 19l7-7-4-4-7 7-1 5z"/><path d="M15 6l3 3"/></g>
-      <g id="i-square"><rect x="4" y="5" width="16" height="14" rx="1.5"/></g>
-      <g id="i-circle"><circle cx="12" cy="12" r="8"/></g>
-      <g id="i-arrow"><path d="M4 20L20 4"/><path d="M11 4h9v9"/></g>
-      <g id="i-image"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></g>
-      <g id="i-sign"><path d="M3 18c4 0 4-10 7-10s2 7 5 7 3-4 6-4"/></g>
-      <g id="i-undo"><path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/></g>
-      <g id="i-redo"><path d="M15 7l5 5-5 5"/><path d="M20 12H9a5 5 0 0 0 0 10h2"/></g>
-      <g id="i-erase"><path d="M5 5l14 14"/><path d="M19 5L5 19"/></g>
-      <g id="i-pages"><rect x="4" y="3" width="11" height="14" rx="1.5"/><path d="M9 21h11V8"/></g>
-      <g id="i-zoomin"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/><path d="M11 8v6"/><path d="M8 11h6"/></g>
-      <g id="i-zoomout"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/><path d="M8 11h6"/></g>
-      <g id="i-fitw"><path d="M3 12h18"/><path d="M6 9l-3 3 3 3"/><path d="M18 9l3 3-3 3"/></g>
-      <g id="i-fitp"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7l-2 2 2 2M15 7l2 2-2 2"/></g>
-      <g id="i-moon"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></g>
-      <g id="i-help"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.5-1 1-1 1.7"/><path d="M12 17h.01"/></g>
-    </defs>
-  </svg>
+  <!-- ===================== PDF TO IMAGES ===================== -->
+  <section class="view" id="view-pdf2img">
+    <p class="lead">Render each page as a picture. Great for sharing or pasting into chats.</p>
+    <label class="drop" id="p2iDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 2h22l12 12v40H10V2z"/><path d="M32 2v12h12"/></svg>
+      <div class="big">Choose a PDF</div>
+      <div class="sub" id="p2iSub">Tap to browse</div>
+      <input type="file" accept="application/pdf" hidden id="p2iInput" />
+    </label>
+    <div class="section" id="p2iOpts" style="display:none">
+      <h4>Format</h4>
+      <div class="choice">
+        <label class="seg"><input type="radio" name="p2ifmt" value="png" checked><span>PNG</span></label>
+        <label class="seg"><input type="radio" name="p2ifmt" value="jpg"><span>JPG</span></label>
+      </div>
+      <h4 style="margin-top:14px">Quality</h4>
+      <div class="choice">
+        <label class="seg"><input type="radio" name="p2iscale" value="1.5"><span>Standard</span></label>
+        <label class="seg"><input type="radio" name="p2iscale" value="2.5" checked><span>High</span></label>
+        <label class="seg"><input type="radio" name="p2iscale" value="3.5"><span>Max</span></label>
+      </div>
+    </div>
+    <div class="actbar">
+      <button class="btn" id="p2iGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m4 16 5-5 4 4 3-3 4 4"/></svg> Convert to images</button>
+      <div class="prog" id="p2iProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+      <div class="result" id="p2iResult"></div>
+    </div>
+  </section>
 
-  <script src="app.js"></script>
+  <!-- ===================== OCR ===================== -->
+  <section class="view" id="view-ocr">
+    <p class="lead">Pull editable text out of a scan or photo. Arabic and English supported.</p>
+    <label class="drop" id="ocrDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 2h22l12 12v40H10V2z"/><path d="M32 2v12h12"/><path d="M16 28h16M16 36h16M16 44h10" stroke-linecap="round"/></svg>
+      <div class="big">Choose a PDF or image</div>
+      <div class="sub" id="ocrSub">Tap to browse</div>
+      <input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hidden id="ocrInput" />
+    </label>
+    <div class="section" id="ocrOpts" style="display:none">
+      <h4>Language</h4>
+      <div class="choice">
+        <label class="seg"><input type="radio" name="ocrlang" value="eng" checked><span>English</span></label>
+        <label class="seg"><input type="radio" name="ocrlang" value="ara"><span>Arabic</span></label>
+        <label class="seg"><input type="radio" name="ocrlang" value="ara+eng"><span>Both</span></label>
+      </div>
+    </div>
+    <div class="actbar">
+      <button class="btn" id="ocrGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2m10 0h2a1 1 0 0 1 1 1v2m0 10v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 12h8"/></svg> Read text</button>
+      <div class="prog" id="ocrProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+    </div>
+    <div class="section" id="ocrOut" style="display:none">
+      <h4>Result</h4>
+      <textarea id="ocrText" spellcheck="false" placeholder="Recognized text will appear here."></textarea>
+      <div class="choice" style="margin-top:10px">
+        <button class="btn ghost seg" id="ocrCopy" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg> Copy</button>
+        <button class="btn ghost seg" id="ocrSave" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v12M7 12l5 5 5-5M5 21h14"/></svg> Save .txt</button>
+      </div>
+      <div class="note">OCR runs entirely on your device, so the first run downloads a language file and may take a moment. Accuracy depends on how clear the scan is.</div>
+    </div>
+  </section>
+
+  <!-- ===================== ARABIC BOOKLET ===================== -->
+  <section class="view" id="view-booklet">
+    <p class="lead">Reorder pages for a folded, right-to-left booklet. Print double-sided, fold, staple.</p>
+    <label class="drop" id="bookDrop">
+      <svg class="pageicon" viewBox="0 0 48 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 2h22l12 12v40H10V2z"/><path d="M32 2v12h12"/></svg>
+      <div class="big">Choose a PDF</div>
+      <div class="sub" id="bookSub">Tap to browse</div>
+      <input type="file" accept="application/pdf" hidden id="bookInput" />
+    </label>
+    <div class="section" id="bookOpts" style="display:none">
+      <h4>Reading direction</h4>
+      <div class="choice">
+        <label class="seg"><input type="radio" name="bookdir" value="rtl" checked><span>Right to left</span></label>
+        <label class="seg"><input type="radio" name="bookdir" value="ltr"><span>Left to right</span></label>
+      </div>
+      <div class="note" id="bookInfo">Blank pages are added automatically so the total is a multiple of four.</div>
+    </div>
+    <div class="actbar">
+      <button class="btn" id="bookGo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v15M12 6c-1.6-1.2-3.8-2-7-2v14c3.2 0 5.4.8 7 2m0-14c1.6-1.2 3.8-2 7-2v14c-3.2 0-5.4.8-7 2"/></svg> Build booklet</button>
+      <div class="prog" id="bookProg"><div class="bar"><i></i></div><div class="ptxt"></div></div>
+      <div class="result" id="bookResult"></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+(function(){
+  const PDFLib = window.PDFLib, pdfjsLib = window.pdfjsLib;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  const $ = (id)=>document.getElementById(id);
+  const VIEWS = ["home","merge","split","rotate","extract","img2pdf","pdf2img","ocr","booklet"];
+  const TITLES = {merge:"Merge PDF", split:"Split PDF", rotate:"Rotate Pages", extract:"Extract Pages",
+    img2pdf:"Images to PDF", pdf2img:"PDF to Images", ocr:"OCR", booklet:"Arabic Booklet"};
+
+  /* ----------------------------- utilities ----------------------------- */
+  function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600); }
+  function human(n){ if(n<1024)return n+" B"; if(n<1048576)return (n/1024).toFixed(0)+" KB"; return (n/1048576).toFixed(1)+" MB"; }
+  async function bytes(file){ return new Uint8Array(await file.arrayBuffer()); }
+  function clone(u8){ return u8.slice(0); }
+  function download(data, name, mime){
+    const blob = data instanceof Blob ? data : new Blob([data], {type:mime||"application/octet-stream"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+  function prog(key, pct, txt){
+    const p=$(key+"Prog"); p.classList.add("show");
+    p.querySelector("i").style.width = Math.max(0,Math.min(100,pct))+"%";
+    p.querySelector(".ptxt").textContent = txt||"";
+  }
+  function progDone(key){ const p=$(key+"Prog"); p.classList.remove("show"); p.querySelector("i").style.width="0"; }
+  function showResult(key, title, sub, name, blobMaker){
+    const r=$(key+"Result"); r.classList.add("show");
+    r.innerHTML = '<div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>'
+      + '<h4>'+title+'</h4><p>'+sub+'</p>';
+    const b=document.createElement("button"); b.className="btn";
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v12M7 12l5 5 5-5M5 21h14"/></svg> Download';
+    let made=null;
+    b.onclick=async()=>{ try{ if(!made) made=await blobMaker(); download(made.data, name, made.mime); }catch(e){ toast("Could not save the file."); } };
+    r.appendChild(b);
+  }
+  function clearResult(key){ const r=$(key+"Result"); if(r){ r.classList.remove("show"); r.innerHTML=""; } }
+  function esc(s){ return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  // store-only ZIP (no dependency)
+  function crc32(buf){ let c,tab=crc32.t; if(!tab){tab=crc32.t=[]; for(let n=0;n<256;n++){c=n; for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1; tab[n]=c>>>0;}}
+    let crc=0xFFFFFFFF; for(let i=0;i<buf.length;i++) crc=(crc>>>8)^tab[(crc^buf[i])&0xFF]; return (crc^0xFFFFFFFF)>>>0; }
+  function zenc(s){ return new TextEncoder().encode(s); }
+  const u16=n=>[n&255,(n>>8)&255], u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];
+  function createZip(files){
+    let parts=[],central=[],offset=0;
+    for(const f of files){
+      const name=zenc(f.name), data=f.data, crc=crc32(data);
+      const lh=new Uint8Array([].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0)));
+      parts.push(lh,name,data);
+      central.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset))),name);
+      offset+=lh.length+name.length+data.length;
+    }
+    let cs=0; central.forEach(p=>cs+=p.length);
+    const eocd=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cs),u32(offset),u16(0)));
+    const all=[...parts,...central,eocd]; let total=0; all.forEach(p=>total+=p.length);
+    const out=new Uint8Array(total); let o=0; for(const p of all){ out.set(p,o); o+=p.length; }
+    return out;
+  }
+
+  // render a pdf.js page to a canvas at scale
+  async function renderPage(pdf, n, scale){
+    const page = await pdf.getPage(n);
+    const vp = page.getViewport({scale});
+    const c = document.createElement("canvas");
+    c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+    const ctx = c.getContext("2d");
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height);
+    await page.render({canvasContext:ctx, viewport:vp}).promise;
+    return c;
+  }
+  function canvasBlob(c, type, q){ return new Promise(res=>c.toBlob(res, type, q)); }
+
+  // saddle-stitch imposition (verified): returns sides [[L,R],...], 1-indexed, 0 = blank
+  function impose(n, dir){
+    const T=Math.ceil(n/4)*4, sides=[];
+    for(let k=0;k<T/4;k++){
+      let fL=T-2*k, fR=1+2*k, bL=2+2*k, bR=T-1-2*k;
+      if(dir==="rtl"){ [fL,fR]=[fR,fL]; [bL,bR]=[bR,bL]; }
+      const cl=p=>(p>=1&&p<=n?p:0);
+      sides.push([cl(fL),cl(fR)],[cl(bL),cl(bR)]);
+    }
+    return sides;
+  }
+
+  /* ------------------------------ router ------------------------------ */
+  function route(){
+    let h=(location.hash||"#home").slice(1);
+    if(VIEWS.indexOf(h)<0) h="home";
+    VIEWS.forEach(v=>$("view-"+v).classList.toggle("active", v===h));
+    const bar=$("appbarIn");
+    if(h==="home"){
+      bar.innerHTML='<span class="wordmark">PDF&nbsp;Studio<span class="dot">.</span></span><span class="tagline">Fast, private PDF tools</span>';
+    }else{
+      bar.innerHTML='<a class="back" href="#home" aria-label="Back to tools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><span class="page-title">'+TITLES[h]+'</span>';
+    }
+    window.scrollTo(0,0);
+  }
+  window.addEventListener("hashchange", route);
+
+  /* --------------------- dropzone wiring (tap + drop) --------------------- */
+  function wireDrop(dropId, inputId, onFiles){
+    const drop=$(dropId), input=$(inputId);
+    drop.addEventListener("click",(e)=>{ if(e.target!==input){ e.preventDefault(); input.click(); } });
+    input.addEventListener("change",()=>{ if(input.files.length){ onFiles([...input.files]); } input.value=""; });
+    ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault(); drop.classList.add("hot");}));
+    ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault(); drop.classList.remove("hot");}));
+    drop.addEventListener("drop",e=>{ const f=[...(e.dataTransfer.files||[])]; if(f.length) onFiles(f); });
+  }
+
+  /* =============================== MERGE =============================== */
+  let mergeFiles=[];
+  function mergeRender(){
+    const wrap=$("mergeListWrap"), list=$("mergeList");
+    wrap.style.display = mergeFiles.length ? "block":"none";
+    $("mergeGo").disabled = mergeFiles.length<2;
+    list.innerHTML="";
+    mergeFiles.forEach((f,i)=>{
+      const row=document.createElement("div"); row.className="frow";
+      row.innerHTML='<span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span>'
+        +'<div class="meta"><div class="nm">'+esc(f.name)+'</div><div class="sz">'+human(f.size)+'</div></div>'
+        +'<div class="ord">'
+        +'<button class="iconbtn" data-up '+(i===0?"disabled":"")+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>'
+        +'<button class="iconbtn" data-down '+(i===mergeFiles.length-1?"disabled":"")+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>'
+        +'<button class="iconbtn del" data-del><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>'
+        +'</div>';
+      row.querySelector("[data-up]").onclick=()=>{ if(i>0){ [mergeFiles[i-1],mergeFiles[i]]=[mergeFiles[i],mergeFiles[i-1]]; mergeRender(); } };
+      row.querySelector("[data-down]").onclick=()=>{ if(i<mergeFiles.length-1){ [mergeFiles[i+1],mergeFiles[i]]=[mergeFiles[i],mergeFiles[i+1]]; mergeRender(); } };
+      row.querySelector("[data-del]").onclick=()=>{ mergeFiles.splice(i,1); mergeRender(); };
+      list.appendChild(row);
+    });
+  }
+  wireDrop("mergeDrop","mergeInput",(fs)=>{ clearResult("merge");
+    mergeFiles=mergeFiles.concat(fs.filter(f=>/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name))); mergeRender(); });
+  $("mergeGo").onclick=async()=>{
+    const btn=$("mergeGo"); btn.disabled=true; clearResult("merge");
+    try{
+      const out=await PDFLib.PDFDocument.create();
+      for(let i=0;i<mergeFiles.length;i++){
+        prog("merge", (i/mergeFiles.length)*90, "Adding "+(i+1)+" of "+mergeFiles.length);
+        const src=await PDFLib.PDFDocument.load(await bytes(mergeFiles[i]),{ignoreEncryption:true});
+        const cp=await out.copyPages(src, src.getPageIndices()); cp.forEach(p=>out.addPage(p));
+      }
+      prog("merge",95,"Saving");
+      const data=await out.save();
+      progDone("merge");
+      showResult("merge","Merged "+mergeFiles.length+" files", out.getPageCount()+" pages \u00b7 "+human(data.length), "merged.pdf", ()=>({data,mime:"application/pdf"}));
+    }catch(e){ progDone("merge"); toast("Merge failed. Is every file a valid PDF?"); }
+    btn.disabled=false;
+  };
+
+  /* =============================== SPLIT =============================== */
+  let splitState=null; // {bytes,name,count}
+  async function loadPdfMeta(file){
+    const u=await bytes(file);
+    const doc=await PDFLib.PDFDocument.load(clone(u),{ignoreEncryption:true});
+    return {bytes:u, name:file.name.replace(/\.pdf$/i,""), count:doc.getPageCount()};
+  }
+  wireDrop("splitDrop","splitInput",async(fs)=>{ clearResult("split");
+    try{ splitState=await loadPdfMeta(fs[0]); $("splitOpts").style.display="block";
+      $("splitSub").textContent=splitState.name+" \u00b7 "+splitState.count+" pages";
+      $("splitGo").disabled=false; $("splitHint").textContent="Pages 1 to "+splitState.count+". Separate parts with commas.";
+    }catch(e){ toast("Could not open that PDF."); } });
+  document.querySelectorAll('input[name=splitmode]').forEach(r=>r.addEventListener("change",()=>{
+    const ranges = document.querySelector('input[name=splitmode]:checked').value==="ranges";
+    $("splitRangeField").style.display = ranges ? "flex" : "none";
+  }));
+  function parseRanges(str, max){
+    const parts=[]; for(let tok of str.split(",")){ tok=tok.trim(); if(!tok)continue;
+      let m=tok.match(/^(\d+)\s*-\s*(\d+)$/); if(m){ let a=+m[1],b=+m[2]; if(a<1||b>max||a>b) return null; parts.push([a,b]); continue; }
+      if(/^\d+$/.test(tok)){ let a=+tok; if(a<1||a>max) return null; parts.push([a,a]); continue; }
+      return null; }
+    return parts.length?parts:null;
+  }
+  $("splitGo").onclick=async()=>{
+    if(!splitState)return; const btn=$("splitGo"); btn.disabled=true; clearResult("split");
+    const mode=document.querySelector('input[name=splitmode]:checked').value;
+    try{
+      const src=await PDFLib.PDFDocument.load(clone(splitState.bytes),{ignoreEncryption:true});
+      let parts;
+      if(mode==="each"){ parts=[]; for(let i=1;i<=splitState.count;i++) parts.push([i,i]); }
+      else{ parts=parseRanges($("splitRanges").value, splitState.count);
+        if(!parts){ toast("Check your ranges, e.g. 1-3, 4, 5-8"); btn.disabled=false; return; } }
+      const outFiles=[];
+      for(let i=0;i<parts.length;i++){
+        prog("split",(i/parts.length)*90,"Part "+(i+1)+" of "+parts.length);
+        const [a,b]=parts[i]; const d=await PDFLib.PDFDocument.create();
+        const idx=[]; for(let p=a;p<=b;p++) idx.push(p-1);
+        (await d.copyPages(src, idx)).forEach(p=>d.addPage(p));
+        const data=await d.save();
+        const label = a===b ? ("page-"+a) : ("pages-"+a+"-"+b);
+        outFiles.push({name:splitState.name+"_"+label+".pdf", data});
+      }
+      prog("split",96,"Packaging");
+      if(outFiles.length===1){ const f=outFiles[0]; progDone("split");
+        showResult("split","Split complete","1 file \u00b7 "+human(f.data.length), f.name, ()=>({data:f.data,mime:"application/pdf"}));
+      }else{
+        const zip=createZip(outFiles); progDone("split");
+        showResult("split","Split into "+outFiles.length+" files","Packaged as a ZIP \u00b7 "+human(zip.length), splitState.name+"_split.zip", ()=>({data:zip,mime:"application/zip"}));
+      }
+    }catch(e){ progDone("split"); toast("Split failed."); }
+    btn.disabled=false;
+  };
+
+  /* ----------- shared page-picker for rotate & extract ----------- */
+  async function buildPicker(file, gridId, selSet, onChange, defaultAll){
+    const u=await bytes(file);
+    const pdf=await pdfjsLib.getDocument({data:clone(u)}).promise;
+    const grid=$(gridId); grid.innerHTML="";
+    selSet.clear(); if(defaultAll){ for(let i=1;i<=pdf.numPages;i++) selSet.add(i); }
+    for(let i=1;i<=pdf.numPages;i++){
+      const tile=document.createElement("div"); tile.className="thumb"+(selSet.has(i)?" sel":"");
+      tile.innerHTML='<span class="pnum">'+i+'</span><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>';
+      tile.onclick=()=>{ if(selSet.has(i)) selSet.delete(i); else selSet.add(i); tile.classList.toggle("sel"); onChange(); };
+      grid.appendChild(tile);
+      // lazy-ish render
+      renderPage(pdf, i, 0.34).then(c=>{ tile.insertBefore(c, tile.firstChild); }).catch(()=>{});
+    }
+    return {bytes:u, count:pdf.numPages};
+  }
+
+  /* =============================== ROTATE =============================== */
+  let rotateState=null; const rotateSel=new Set();
+  function rotateUpdate(){
+    const n=rotateSel.size, total=rotateState?rotateState.count:0;
+    $("rotateSel").textContent = n===total ? "All pages selected" : (n+" of "+total+" selected");
+    $("rotateToggleAll").textContent = n===total ? "Clear all" : "Select all";
+    $("rotateGo").disabled = n===0;
+  }
+  wireDrop("rotateDrop","rotateInput",async(fs)=>{ clearResult("rotate");
+    try{ $("rotateOpts").style.display="block"; $("rotateThumbs").innerHTML="<p class='hint'>Loading pages\u2026</p>";
+      rotateState=await buildPicker(fs[0],"rotateThumbs",rotateSel,rotateUpdate,true); rotateUpdate();
+    }catch(e){ toast("Could not open that PDF."); } });
+  $("rotateToggleAll").onclick=()=>{
+    if(rotateSel.size===rotateState.count) rotateSel.clear(); else { for(let i=1;i<=rotateState.count;i++) rotateSel.add(i); }
+    $("rotateThumbs").querySelectorAll(".thumb").forEach((t,idx)=>t.classList.toggle("sel", rotateSel.has(idx+1)));
+    rotateUpdate();
+  };
+  $("rotateGo").onclick=async()=>{
+    if(!rotateState)return; const btn=$("rotateGo"); btn.disabled=true; clearResult("rotate");
+    const delta=+document.querySelector('input[name=rotdir]:checked').value;
+    try{
+      prog("rotate",30,"Rotating");
+      const doc=await PDFLib.PDFDocument.load(clone(rotateState.bytes),{ignoreEncryption:true});
+      doc.getPages().forEach((p,idx)=>{ if(rotateSel.has(idx+1)){ const a=((p.getRotation().angle+delta)%360+360)%360; p.setRotation(PDFLib.degrees(a)); } });
+      prog("rotate",80,"Saving");
+      const data=await doc.save(); progDone("rotate");
+      showResult("rotate","Pages rotated", rotateSel.size+" pages turned \u00b7 "+human(data.length), "rotated.pdf", ()=>({data,mime:"application/pdf"}));
+    }catch(e){ progDone("rotate"); toast("Rotate failed."); }
+    btn.disabled=false;
+  };
+
+  /* =============================== EXTRACT =============================== */
+  let extractState=null; const extractSel=new Set();
+  function extractUpdate(){
+    const n=extractSel.size, total=extractState?extractState.count:0;
+    $("extractSel").textContent = n+" of "+total+" selected";
+    $("extractToggleAll").textContent = (n===total&&total>0) ? "Clear all" : "Select all";
+    $("extractGo").disabled = n===0;
+  }
+  wireDrop("extractDrop","extractInput",async(fs)=>{ clearResult("extract");
+    try{ $("extractOpts").style.display="block"; $("extractThumbs").innerHTML="<p class='hint'>Loading pages\u2026</p>";
+      extractState=await buildPicker(fs[0],"extractThumbs",extractSel,extractUpdate,false); extractUpdate();
+    }catch(e){ toast("Could not open that PDF."); } });
+  $("extractToggleAll").onclick=()=>{
+    if(extractSel.size===extractState.count) extractSel.clear(); else { for(let i=1;i<=extractState.count;i++) extractSel.add(i); }
+    $("extractThumbs").querySelectorAll(".thumb").forEach((t,idx)=>t.classList.toggle("sel", extractSel.has(idx+1)));
+    extractUpdate();
+  };
+  $("extractGo").onclick=async()=>{
+    if(!extractState)return; const btn=$("extractGo"); btn.disabled=true; clearResult("extract");
+    try{
+      prog("extract",30,"Extracting");
+      const src=await PDFLib.PDFDocument.load(clone(extractState.bytes),{ignoreEncryption:true});
+      const out=await PDFLib.PDFDocument.create();
+      const idx=[...extractSel].sort((a,b)=>a-b).map(p=>p-1);
+      (await out.copyPages(src, idx)).forEach(p=>out.addPage(p));
+      prog("extract",80,"Saving");
+      const data=await out.save(); progDone("extract");
+      showResult("extract","Extracted "+idx.length+" pages", "New PDF \u00b7 "+human(data.length), "extracted.pdf", ()=>({data,mime:"application/pdf"}));
+    }catch(e){ progDone("extract"); toast("Extract failed."); }
+    btn.disabled=false;
+  };
+
+  /* =========================== IMAGES TO PDF =========================== */
+  let imgFiles=[];
+  function imgRender(){
+    const wrap=$("imgListWrap"), list=$("imgList");
+    wrap.style.display = imgFiles.length?"block":"none";
+    $("imgSizeWrap").style.display = imgFiles.length?"block":"none";
+    $("imgGo").disabled = imgFiles.length<1;
+    list.innerHTML="";
+    imgFiles.forEach((f,i)=>{
+      const row=document.createElement("div"); row.className="frow";
+      const fi=document.createElement("span"); fi.className="fi";
+      const im=document.createElement("img"); im.style.cssText="width:100%;height:100%;object-fit:cover;border-radius:9px";
+      im.src=URL.createObjectURL(f); im.onload=()=>URL.revokeObjectURL(im.src); fi.appendChild(im);
+      const meta=document.createElement("div"); meta.className="meta";
+      meta.innerHTML='<div class="nm">'+esc(f.name)+'</div><div class="sz">'+human(f.size)+'</div>';
+      const ord=document.createElement("div"); ord.className="ord";
+      ord.innerHTML='<button class="iconbtn" data-up '+(i===0?"disabled":"")+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>'
+        +'<button class="iconbtn" data-down '+(i===imgFiles.length-1?"disabled":"")+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>'
+        +'<button class="iconbtn del" data-del><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>';
+      ord.querySelector("[data-up]").onclick=()=>{ if(i>0){[imgFiles[i-1],imgFiles[i]]=[imgFiles[i],imgFiles[i-1]]; imgRender();} };
+      ord.querySelector("[data-down]").onclick=()=>{ if(i<imgFiles.length-1){[imgFiles[i+1],imgFiles[i]]=[imgFiles[i],imgFiles[i+1]]; imgRender();} };
+      ord.querySelector("[data-del]").onclick=()=>{ imgFiles.splice(i,1); imgRender(); };
+      row.appendChild(fi); row.appendChild(meta); row.appendChild(ord); list.appendChild(row);
+    });
+  }
+  wireDrop("imgDrop","imgInput",(fs)=>{ clearResult("img");
+    imgFiles=imgFiles.concat(fs.filter(f=>/^image\//.test(f.type))); imgRender(); });
+  // normalize any image (incl. webp) to {bytes,type} embeddable by pdf-lib
+  async function normalizeImage(file){
+    const isPng=/png$/i.test(file.type), isJpg=/jpe?g$/i.test(file.type);
+    if(isPng||isJpg){ const u=await bytes(file); return {data:u, type:isPng?"png":"jpg", w:null, h:null, file}; }
+    // webp or other -> draw to canvas, export png
+    const url=URL.createObjectURL(file); const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=url; });
+    const c=document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight;
+    c.getContext("2d").drawImage(img,0,0); URL.revokeObjectURL(url);
+    const blob=await canvasBlob(c,"image/png"); return {data:new Uint8Array(await blob.arrayBuffer()), type:"png"};
+  }
+  $("imgGo").onclick=async()=>{
+    const btn=$("imgGo"); btn.disabled=true; clearResult("img");
+    const size=document.querySelector('input[name=imgsize]:checked').value;
+    const A4=[595.28,841.89];
+    try{
+      const doc=await PDFLib.PDFDocument.create();
+      for(let i=0;i<imgFiles.length;i++){
+        prog("img",(i/imgFiles.length)*92,"Adding image "+(i+1)+" of "+imgFiles.length);
+        const norm=await normalizeImage(imgFiles[i]);
+        const emb = norm.type==="png" ? await doc.embedPng(norm.data) : await doc.embedJpg(norm.data);
+        if(size==="a4"){
+          const page=doc.addPage(A4); const m=24;
+          const s=Math.min((A4[0]-2*m)/emb.width,(A4[1]-2*m)/emb.height);
+          const w=emb.width*s, h=emb.height*s;
+          page.drawImage(emb,{x:(A4[0]-w)/2,y:(A4[1]-h)/2,width:w,height:h});
+        }else{
+          const page=doc.addPage([emb.width,emb.height]);
+          page.drawImage(emb,{x:0,y:0,width:emb.width,height:emb.height});
+        }
+      }
+      prog("img",96,"Saving");
+      const data=await doc.save(); progDone("img");
+      showResult("img","PDF created", imgFiles.length+" pages \u00b7 "+human(data.length), "images.pdf", ()=>({data,mime:"application/pdf"}));
+    }catch(e){ progDone("img"); toast("Could not build the PDF from those images."); }
+    btn.disabled=false;
+  };
+
+  /* =========================== PDF TO IMAGES =========================== */
+  let p2iState=null;
+  wireDrop("p2iDrop","p2iInput",async(fs)=>{ clearResult("p2i");
+    try{ const u=await bytes(fs[0]); const pdf=await pdfjsLib.getDocument({data:clone(u)}).promise;
+      p2iState={bytes:u, name:fs[0].name.replace(/\.pdf$/i,""), count:pdf.numPages};
+      $("p2iOpts").style.display="block"; $("p2iSub").textContent=p2iState.name+" \u00b7 "+p2iState.count+" pages"; $("p2iGo").disabled=false;
+    }catch(e){ toast("Could not open that PDF."); } });
+  $("p2iGo").onclick=async()=>{
+    if(!p2iState)return; const btn=$("p2iGo"); btn.disabled=true; clearResult("p2i");
+    const fmt=document.querySelector('input[name=p2ifmt]:checked').value;
+    const scale=+document.querySelector('input[name=p2iscale]:checked').value;
+    const type=fmt==="png"?"image/png":"image/jpeg", ext=fmt==="png"?"png":"jpg";
+    try{
+      const pdf=await pdfjsLib.getDocument({data:clone(p2iState.bytes)}).promise;
+      const pad=String(pdf.numPages).length, out=[];
+      for(let i=1;i<=pdf.numPages;i++){
+        prog("p2i",(i/pdf.numPages)*92,"Rendering page "+i+" of "+pdf.numPages);
+        const c=await renderPage(pdf,i,scale);
+        const blob=await canvasBlob(c,type,fmt==="jpg"?0.92:undefined);
+        out.push({name:p2iState.name+"_p"+String(i).padStart(pad,"0")+"."+ext, data:new Uint8Array(await blob.arrayBuffer())});
+      }
+      prog("p2i",96,"Packaging");
+      if(out.length===1){ const f=out[0]; progDone("p2i");
+        showResult("p2i","Image ready","1 image \u00b7 "+human(f.data.length), f.name, ()=>({data:f.data,mime:type}));
+      }else{
+        const zip=createZip(out); progDone("p2i");
+        showResult("p2i",out.length+" images ready","Packaged as a ZIP \u00b7 "+human(zip.length), p2iState.name+"_images.zip", ()=>({data:zip,mime:"application/zip"}));
+      }
+    }catch(e){ progDone("p2i"); toast("Conversion failed."); }
+    btn.disabled=false;
+  };
+
+  /* =============================== OCR =============================== */
+  let ocrFile=null, ocrIsPdf=false;
+  wireDrop("ocrDrop","ocrInput",(fs)=>{ const f=fs[0]; if(!f)return;
+    ocrFile=f; ocrIsPdf=/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name);
+    $("ocrOpts").style.display="block"; $("ocrSub").textContent=f.name; $("ocrGo").disabled=false;
+    $("ocrOut").style.display="none"; });
+  $("ocrGo").onclick=async()=>{
+    if(!ocrFile)return; const btn=$("ocrGo"); btn.disabled=true; $("ocrOut").style.display="none";
+    const lang=document.querySelector('input[name=ocrlang]:checked').value;
+    const logger=m=>{ if(m.status==="recognizing text") prog("ocr",10+m.progress*80,"Reading text \u2026 "+Math.round(m.progress*100)+"%");
+      else prog("ocr",6,(m.status||"Preparing").replace(/^\w/,c=>c.toUpperCase())); };
+    try{
+      prog("ocr",4,"Preparing");
+      let text="";
+      if(ocrIsPdf){
+        const pdf=await pdfjsLib.getDocument({data:clone(await bytes(ocrFile))}).promise;
+        for(let i=1;i<=pdf.numPages;i++){
+          prog("ocr",6,"Rendering page "+i+" of "+pdf.numPages);
+          const c=await renderPage(pdf,i,2.0);
+          const r=await Tesseract.recognize(c, lang, {logger});
+          text += (pdf.numPages>1 ? ("--- Page "+i+" ---\n") : "") + r.data.text.trim() + "\n\n";
+        }
+      }else{
+        const r=await Tesseract.recognize(ocrFile, lang, {logger});
+        text = r.data.text;
+      }
+      progDone("ocr");
+      const ta=$("ocrText"); ta.value=text.trim();
+      ta.dir = (lang.indexOf("ara")===0) ? "rtl" : "auto";
+      $("ocrOut").style.display="block";
+      if(!ta.value) toast("No text found. Try a clearer scan or another language.");
+    }catch(e){ progDone("ocr"); toast("OCR could not run. Check your connection on first use."); }
+    btn.disabled=false;
+  };
+  $("ocrCopy").onclick=async()=>{ const t=$("ocrText").value; if(!t)return;
+    try{ await navigator.clipboard.writeText(t); toast("Copied to clipboard"); }
+    catch(e){ $("ocrText").select(); document.execCommand&&document.execCommand("copy"); toast("Copied"); } };
+  $("ocrSave").onclick=()=>{ const t=$("ocrText").value; if(!t){toast("Nothing to save yet");return;}
+    download("\ufeff"+t, "ocr-text.txt", "text/plain;charset=utf-8"); };
+
+  /* =========================== ARABIC BOOKLET =========================== */
+  let bookState=null;
+  wireDrop("bookDrop","bookInput",async(fs)=>{ clearResult("book");
+    try{ bookState=await loadPdfMeta(fs[0]); $("bookOpts").style.display="block";
+      $("bookSub").textContent=bookState.name+" \u00b7 "+bookState.count+" pages"; $("bookGo").disabled=false;
+      const pad=(Math.ceil(bookState.count/4)*4)-bookState.count;
+      $("bookInfo").textContent = pad===0 ? "Page count is already a multiple of four \u2014 no blanks needed."
+        : (pad+" blank page"+(pad>1?"s":"")+" will be added so the total is a multiple of four.");
+    }catch(e){ toast("Could not open that PDF."); } });
+  $("bookGo").onclick=async()=>{
+    if(!bookState)return; const btn=$("bookGo"); btn.disabled=true; clearResult("book");
+    const dir=document.querySelector('input[name=bookdir]:checked').value;
+    const A4L=[841.89,595.28];
+    try{
+      prog("book",10,"Reading pages");
+      const src=await PDFLib.PDFDocument.load(clone(bookState.bytes),{ignoreEncryption:true});
+      const book=await PDFLib.PDFDocument.create();
+      const sides=impose(src.getPageCount(), dir);
+      const need=[...new Set(sides.flat().filter(Boolean))];
+      const embedded={};
+      for(let i=0;i<need.length;i++){ prog("book",10+(i/need.length)*55,"Placing page "+need[i]);
+        embedded[need[i]]=await book.embedPage(src.getPage(need[i]-1)); }
+      const halfW=A4L[0]/2, fullH=A4L[1], m=10;
+      for(let s=0;s<sides.length;s++){
+        prog("book",65+(s/sides.length)*30,"Building sheet "+(Math.floor(s/2)+1));
+        const page=book.addPage(A4L); const [L,R]=sides[s];
+        const place=(pg,ox)=>{ if(!pg)return; const ep=embedded[pg];
+          const sc=Math.min((halfW-2*m)/ep.width,(fullH-2*m)/ep.height);
+          const w=ep.width*sc, h=ep.height*sc;
+          page.drawPage(ep,{x:ox+(halfW-w)/2, y:(fullH-h)/2, xScale:sc, yScale:sc}); };
+        place(L,0); place(R,halfW);
+      }
+      prog("book",97,"Saving");
+      const data=await book.save(); progDone("book");
+      showResult("book","Booklet ready", sides.length+" sheets (A4 landscape) \u00b7 "+human(data.length),
+        bookState.name+"_booklet.pdf", ()=>({data,mime:"application/pdf"}));
+    }catch(e){ progDone("book"); toast("Booklet build failed."); }
+    btn.disabled=false;
+  };
+
+  /* ------------------------------- boot ------------------------------- */
+  route();
+})();
+</script>
 </body>
 </html>

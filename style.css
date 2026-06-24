@@ -497,6 +497,10 @@ kbd {
   color: var(--accent);
   box-shadow: var(--shadow-2);
 }
+/* The hidden attribute must win over the display rules above so the
+   overlay and continuous container stay invisible until toggled. */
+.drop-overlay[hidden],
+.continuous[hidden] { display: none; }
 
 /* ============================ TOASTS ============================ */
 .toast-host {

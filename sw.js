@@ -5,7 +5,7 @@
  * fallback, and navigations fall back to the cached index.html.
  * ========================================================================== */
 
-const CACHE = 'pdf-studio-v1';
+const CACHE = 'pdf-studio-v2';
 
 const LOCAL_ASSETS = [
   './',

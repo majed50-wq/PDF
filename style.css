@@ -581,7 +581,70 @@ kbd {
   body.show-sidebar .sidebar { transform: none; }
 }
 
-/* ============================ ACCESSIBILITY ============================ */
+/* The horizontal-scroll fade hint only exists on touch layouts. */
+.toolbar-fade { display: none; }
+
+/* --------------------- Touch / mobile ergonomics ---------------------
+   On touch devices the toolbar becomes a horizontally scrollable row of
+   large, clearly-labelled targets (Apple HIG: ~44pt minimum). Each control
+   stacks its icon over a short label so nothing is cryptic, the row snaps
+   to each tool group as you swipe, and a soft fade on the right edge makes
+   it obvious there is more to scroll to. Desktop layout is untouched. */
+@media (pointer: coarse) {
+  :root { --toolbar-h: 70px; }
+
+  .toolbar {
+    gap: 2px;
+    padding: 0 6px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scroll-padding-left: 8px;
+  }
+  .toolbar > .tgroup { scroll-snap-align: start; gap: 2px; }
+
+  .tbtn {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    height: 60px;
+    min-width: 56px;
+    padding: 6px 8px;
+    border-radius: 13px;
+    font-size: 10.5px;
+    line-height: 1.1;
+    color: var(--text-dim);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tbtn span { display: block; }                 /* reveal labels on touch */
+  .tbtn.primary { padding: 6px 16px; }
+  .tbtn.primary span { display: block; font-size: 11px; }
+  #btnNew span, #btnOpen span, #btnImages span { display: block; }
+  .ic { width: 25px; height: 25px; stroke-width: 1.8; }
+
+  .tbtn.tool.active { background: var(--accent-soft); }
+
+  /* Finger-sized colour and thickness controls. */
+  .swatch { width: 46px; height: 46px; border-radius: 13px; align-self: center; }
+  .thick { width: 116px; align-self: center; }
+  .thick input { height: 30px; }
+
+  .sep { height: 42px; margin: 0 4px; }
+  .zoomval { min-width: 48px; font-size: 13px; align-self: center; }
+
+  .toolbar-fade {
+    display: block;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 26px;
+    height: var(--toolbar-h);
+    pointer-events: none;
+    z-index: 21;
+    background: linear-gradient(to right, transparent, var(--surface) 78%);
+  }
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
